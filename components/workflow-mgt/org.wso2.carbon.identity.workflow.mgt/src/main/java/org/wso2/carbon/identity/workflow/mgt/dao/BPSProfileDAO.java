@@ -18,12 +18,16 @@
 
 package org.wso2.carbon.identity.workflow.mgt.dao;
 
+import org.wso2.carbon.core.util.CryptoException;
+import org.wso2.carbon.core.util.CryptoUtil;
 import org.wso2.carbon.identity.base.IdentityException;
 import org.wso2.carbon.identity.core.util.IdentityDatabaseUtil;
 import org.wso2.carbon.identity.workflow.mgt.util.WorkFlowConstants;
 import org.wso2.carbon.identity.workflow.mgt.bean.BPSProfileBean;
 import org.wso2.carbon.identity.workflow.mgt.exception.InternalWorkflowException;
 
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -42,15 +46,29 @@ public class BPSProfileDAO {
         Connection connection = null;
         PreparedStatement prepStmt = null;
         String query = SQLConstants.ADD_BPS_PROFILE_QUERY;
+        String encryptPassword;
+        String encryptCallBackPassword;
+
+        try {
+            CryptoUtil cryptoUtil = CryptoUtil.getDefaultCryptoUtil();
+            encryptPassword = cryptoUtil.
+                    encryptAndBase64Encode(password.getBytes(Charset.forName("UTF-8")));
+            encryptCallBackPassword = cryptoUtil.
+                    encryptAndBase64Encode(callbackPassword.getBytes(Charset.forName("UTF-8")));
+        } catch (CryptoException e) {
+            throw new InternalWorkflowException("Error while encrypting the passwords of BPS Profile" + " " +
+                    profileName, e);
+        }
+
         try {
             connection = IdentityDatabaseUtil.getDBConnection();
             prepStmt = connection.prepareStatement(query);
             prepStmt.setString(1, profileName);
             prepStmt.setString(2, host);
             prepStmt.setString(3, user);
-            prepStmt.setString(4, password);
+            prepStmt.setString(4, encryptPassword);
             prepStmt.setString(5, callBackUser);
-            prepStmt.setString(6, callbackPassword);
+            prepStmt.setString(6, encryptCallBackPassword);
             prepStmt.setInt(7, tenantId);
             prepStmt.executeUpdate();
             connection.commit();
@@ -70,6 +88,9 @@ public class BPSProfileDAO {
         ResultSet rs;
         Map<String, Object> profileParams = new HashMap<>();
         String query = SQLConstants.GET_BPS_PROFILE_QUERY;
+        String decryptPassword;
+        String decryptCallBackPassword;
+
         try {
             connection = IdentityDatabaseUtil.getDBConnection();
             prepStmt = connection.prepareStatement(query);
@@ -81,11 +102,24 @@ public class BPSProfileDAO {
                 String password = rs.getString(SQLConstants.PASSWORD_COLUMN);
                 String callbackUser = rs.getString(SQLConstants.CALLBACK_USER_COLUMN);
                 String callbackPassword = rs.getString(SQLConstants.CALLBACK_PASSWORD_COLUMN);
+
+                try {
+                    CryptoUtil cryptoUtil = CryptoUtil.getDefaultCryptoUtil();
+                    byte[] decryptedPasswordBytes = cryptoUtil.base64DecodeAndDecrypt(password);
+                    decryptPassword = new String(decryptedPasswordBytes, "UTF-8");
+                    byte[] decryptedCallBackPasswordBytes = cryptoUtil.base64DecodeAndDecrypt(callbackPassword);
+                    decryptCallBackPassword = new String(decryptedCallBackPasswordBytes, "UTF-8");
+
+                } catch (CryptoException | UnsupportedEncodingException e) {
+                    throw new InternalWorkflowException("Error while decrypting the password for BPEL Profile" + " " +
+                            profileName, e);
+                }
+
                 profileParams.put(WorkFlowConstants.TemplateConstants.HOST, hostName);
                 profileParams.put(WorkFlowConstants.TemplateConstants.AUTH_USER, user);
-                profileParams.put(WorkFlowConstants.TemplateConstants.AUTH_USER_PASSWORD, password);
+                profileParams.put(WorkFlowConstants.TemplateConstants.AUTH_USER_PASSWORD, decryptPassword);
                 profileParams.put(WorkFlowConstants.TemplateConstants.CALLBACK_USER, callbackUser);
-                profileParams.put(WorkFlowConstants.TemplateConstants.CALLBACK_USER_PASSWORD, callbackPassword);
+                profileParams.put(WorkFlowConstants.TemplateConstants.CALLBACK_USER_PASSWORD, decryptCallBackPassword);
             }
         } catch (IdentityException e) {
             throw new InternalWorkflowException("Error when connecting to the Identity Database.", e);

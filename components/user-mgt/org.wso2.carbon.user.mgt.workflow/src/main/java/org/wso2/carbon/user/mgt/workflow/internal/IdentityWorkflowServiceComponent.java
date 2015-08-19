@@ -40,7 +40,7 @@ import org.wso2.carbon.user.core.service.RealmService;
 import org.wso2.carbon.utils.ConfigurationContextService;
 
 /**
- * @scr.component name="identity.workflow" immediate="true"
+ * @scr.component name="identity.user.mgt.workflow" immediate="true"
  * @scr.reference name="user.realmservice.default" interface="org.wso2.carbon.user.core.service.RealmService"
  * cardinality="1..1" policy="dynamic" bind="setRealmService"
  * unbind="unsetRealmService"
