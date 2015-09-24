@@ -22,6 +22,7 @@ import org.apache.commons.io.Charsets;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
+import org.owasp.encoder.Encode;
 import org.wso2.carbon.base.ServerConfiguration;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
 import org.wso2.carbon.identity.application.authentication.framework.cache.AuthenticationRequestCacheEntry;
@@ -40,10 +41,8 @@ import org.wso2.carbon.identity.oauth2.OAuth2Service;
 import org.wso2.carbon.identity.oauth2.OAuth2TokenValidationService;
 import org.wso2.carbon.identity.oauth2.model.OAuth2Parameters;
 import org.wso2.carbon.identity.oauth2.util.OAuth2Util;
-import org.wso2.carbon.ui.util.CharacterEncoder;
 
 import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -170,25 +169,10 @@ public class EndpointUtil {
         } else {
             errorPageUrl = IdentityUtil.getServerURL("/authenticationendpoint/oauth2_error.do");
         }
-        try {
-            errorPageUrl += "?" + OAuthConstants.OAUTH_ERROR_CODE + "=" + URLEncoder.encode(errorCode, "UTF-8") + "&"
-                    + OAuthConstants.OAUTH_ERROR_MESSAGE + "=" + URLEncoder.encode(errorMessage, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            //ignore
-            if (log.isDebugEnabled()){
-                log.debug("Error while encoding the error page url", e);
-            }
-        }
-
+        errorPageUrl += "?" + OAuthConstants.OAUTH_ERROR_CODE + "=" + Encode.forUriComponent(errorCode) + "&"
+                + OAuthConstants.OAUTH_ERROR_MESSAGE + "=" + Encode.forUriComponent(errorMessage);
         if (appName != null) {
-            try {
-                errorPageUrl += "application" + "=" + URLEncoder.encode(appName, "UTF-8");
-            } catch (UnsupportedEncodingException e) {
-                //ignore
-                if (log.isDebugEnabled()){
-                    log.debug("Error while encoding the error page url", e);
-                }
-            }
+            errorPageUrl += "application" + "=" + Encode.forUriComponent(appName);
         }
 
         return errorPageUrl;
@@ -297,42 +281,38 @@ public class EndpointUtil {
                 (new SessionDataCacheKey(sessionDataKey));
         String consentPage = null;
         String sessionDataKeyConsent = UUID.randomUUID().toString();
-        try {
-            if (entry == null) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Cache Entry is Null from SessionDataCache ");
-                }
-            } else {
-                sessionDataCache.addToCache(new SessionDataCacheKey(sessionDataKeyConsent),entry);
-                queryString = URLEncoder.encode(entry.getQueryString(), "UTF-8");
-            }
 
-
-            if (isOIDC) {
-                consentPage = IdentityUtil.getServerURL("/authenticationendpoint/oauth2_consent.do");
-            } else {
-                consentPage = IdentityUtil.getServerURL("/authenticationendpoint/oauth2_authz.do");
+        if (entry == null) {
+            if (log.isDebugEnabled()) {
+                log.debug("Cache Entry is Null from SessionDataCache ");
             }
-            if (params != null) {
-                consentPage += "?" + OAuthConstants.OIDC_LOGGED_IN_USER + "=" + URLEncoder.encode(loggedInUser,
-                        "UTF-8") + "&application=" + URLEncoder.encode(params.getApplicationName(), "ISO-8859-1") +
-                        "&" + OAuthConstants.OAuth20Params.SCOPE + "=" + URLEncoder.encode(EndpointUtil.getScope
-                        (params), "ISO-8859-1") + "&" + OAuthConstants.SESSION_DATA_KEY_CONSENT + "=" + URLEncoder
-                        .encode(sessionDataKeyConsent, "UTF-8") + "&spQueryParams=" + queryString;
-            } else {
-                throw new OAuthSystemException("Error while retrieving the application name");
-            }
-        } catch (UnsupportedEncodingException e) {
-            throw new OAuthSystemException("Error while encoding the url", e);
+        } else {
+            sessionDataCache.addToCache(new SessionDataCacheKey(sessionDataKeyConsent), entry);
+            queryString = Encode.forUriComponent(entry.getQueryString());
         }
 
+
+        if (isOIDC) {
+            consentPage = IdentityUtil.getServerURL("/authenticationendpoint/oauth2_consent.do");
+        } else {
+            consentPage = IdentityUtil.getServerURL("/authenticationendpoint/oauth2_authz.do");
+        }
+        if (params != null) {
+            consentPage += "?" + OAuthConstants.OIDC_LOGGED_IN_USER + "=" + Encode.forUriComponent(loggedInUser)
+                    + "&application=" + Encode.forUriComponent(params.getApplicationName()) +
+                    "&" + OAuthConstants.OAuth20Params.SCOPE + "=" + Encode.forUriComponent(EndpointUtil.getScope
+                    (params)) + "&" + OAuthConstants.SESSION_DATA_KEY_CONSENT + "=" +
+                    Encode.forUriComponent(sessionDataKeyConsent) + "&spQueryParams=" + queryString;
+        } else {
+            throw new OAuthSystemException("Error while retrieving the application name");
+        }
         return consentPage;
     }
 
     public static String getScope(OAuth2Parameters params) {
         StringBuilder scopes = new StringBuilder();
         for (String scope : params.getScopes()) {
-            scopes.append(CharacterEncoder.getSafeText(scope) + " ");
+            scopes.append(scope + " ");
         }
         return scopes.toString().trim();
     }

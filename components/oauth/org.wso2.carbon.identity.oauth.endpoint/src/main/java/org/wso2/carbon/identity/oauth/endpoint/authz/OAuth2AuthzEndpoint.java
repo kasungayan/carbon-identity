@@ -27,6 +27,7 @@ import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.apache.oltu.oauth2.common.message.OAuthResponse;
 import org.apache.oltu.oauth2.common.message.types.ResponseType;
+import org.owasp.encoder.Encode;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
 import org.wso2.carbon.identity.application.authentication.framework.cache.AuthenticationResultCache;
 import org.wso2.carbon.identity.application.authentication.framework.cache.AuthenticationResultCacheEntry;
@@ -55,7 +56,6 @@ import org.wso2.carbon.identity.oauth2.dto.OAuth2ClientValidationResponseDTO;
 import org.wso2.carbon.identity.oauth2.model.OAuth2Parameters;
 import org.wso2.carbon.identity.oauth2.util.OAuth2Util;
 import org.wso2.carbon.registry.core.utils.UUIDGenerator;
-import org.wso2.carbon.ui.util.CharacterEncoder;
 import org.wso2.carbon.utils.multitenancy.MultitenantConstants;
 
 import javax.servlet.http.HttpServletRequest;
@@ -69,10 +69,8 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URLEncoder;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -96,12 +94,10 @@ public class OAuth2AuthzEndpoint {
         carbonContext.setTenantId(MultitenantConstants.SUPER_TENANT_ID);
         carbonContext.setTenantDomain(MultitenantConstants.SUPER_TENANT_DOMAIN_NAME);
 
-        String clientId = CharacterEncoder.getSafeText(request.getParameter("client_id"));
+        String clientId = request.getParameter("client_id");
 
-        String sessionDataKeyFromLogin = CharacterEncoder.getSafeText(request.getParameter(
-                OAuthConstants.SESSION_DATA_KEY));
-        String sessionDataKeyFromConsent = CharacterEncoder.getSafeText(request.getParameter(
-                OAuthConstants.SESSION_DATA_KEY_CONSENT));
+        String sessionDataKeyFromLogin = request.getParameter(OAuthConstants.SESSION_DATA_KEY);
+        String sessionDataKeyFromConsent = request.getParameter(OAuthConstants.SESSION_DATA_KEY_CONSENT);
         CacheKey cacheKey = null;
         Object resultFromLogin = null;
         Object resultFromConsent = null;
@@ -218,7 +214,7 @@ public class OAuth2AuthzEndpoint {
 
                 sessionDataCacheEntry = ((SessionDataCacheEntry) resultFromConsent);
                 OAuth2Parameters oauth2Params = sessionDataCacheEntry.getoAuth2Parameters();
-                String consent = CharacterEncoder.getSafeText(request.getParameter("consent"));
+                String consent = request.getParameter("consent");
                 if (consent != null) {
 
                     if (OAuthConstants.Consent.DENY.equals(consent)) {
@@ -235,13 +231,7 @@ public class OAuth2AuthzEndpoint {
                     String authenticatedIdPs = sessionDataCacheEntry.getAuthenticatedIdPs();
 
                     if (authenticatedIdPs != null && !authenticatedIdPs.isEmpty()) {
-                        try {
-                            redirectURL = redirectURL + "&AuthenticatedIdPs=" + URLEncoder.encode(authenticatedIdPs
-                                    , "UTF-8");
-                        } catch (UnsupportedEncodingException e) {
-                            //this exception should not occur
-                            log.error("Error while encoding the url", e);
-                        }
+                        redirectURL = redirectURL + "&AuthenticatedIdPs=" + Encode.forUriComponent(authenticatedIdPs);
                     }
 
                     return Response.status(HttpServletResponse.SC_FOUND).location(new URI(redirectURL)).build();
@@ -426,7 +416,7 @@ public class OAuth2AuthzEndpoint {
             throws OAuthSystemException, OAuthProblemException {
 
         OAuth2ClientValidationResponseDTO clientDTO = null;
-        String redirectUri = CharacterEncoder.getSafeText(req.getParameter("redirect_uri"));
+        String redirectUri = req.getParameter("redirect_uri");
         if (StringUtils.isBlank(clientId)) {
             if (log.isDebugEnabled()) {
                 log.debug("Client Id is not present in the authorization request");
