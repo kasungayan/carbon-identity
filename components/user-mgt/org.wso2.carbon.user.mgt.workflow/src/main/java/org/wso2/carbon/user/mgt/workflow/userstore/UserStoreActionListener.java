@@ -28,6 +28,7 @@ import org.wso2.carbon.user.core.UserCoreConstants;
 import org.wso2.carbon.user.core.UserStoreException;
 import org.wso2.carbon.user.core.UserStoreManager;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class UserStoreActionListener extends AbstractIdentityUserOperationEventListener {
@@ -106,11 +107,14 @@ public class UserStoreActionListener extends AbstractIdentityUserOperationEventL
             return true;
         }
 
+        Map<String, String> claims = new HashMap();
+        claims.put(claimURI, claimValue);
+
         String domain = userStoreManager.getRealmConfiguration().getUserStoreProperty(UserCoreConstants.RealmConfig
                 .PROPERTY_DOMAIN_NAME);
         try {
-            return new SetUserClaimWFRequestHandler()
-                    .startSetClaimWorkflow(domain, userName, claimURI, claimValue, profileName);
+            return new SetMultipleClaimsWFRequestHandler().
+                    startSetMultipleClaimsWorkflow(domain, userName, claims, profileName);
         } catch (WorkflowException e) {
             // Sending e.getMessage() since it is required to give error message to end user.
             throw new UserStoreException(e.getMessage(), e);
@@ -160,11 +164,14 @@ public class UserStoreActionListener extends AbstractIdentityUserOperationEventL
             return true;
         }
 
+        String[] claims = new String[1];
+        claims[0] = claimURI;
+
         String domain = userStoreManager.getRealmConfiguration().getUserStoreProperty(UserCoreConstants.RealmConfig
                 .PROPERTY_DOMAIN_NAME);
         try {
-            return new DeleteClaimWFRequestHandler()
-                    .startDeleteClaimWorkflow(domain, userName, claimURI, profileName);
+            return new DeleteMultipleClaimsWFRequestHandler().
+                    startDeleteMultipleClaimsWorkflow(domain, userName, claims, profileName);
         } catch (WorkflowException e) {
             // Sending e.getMessage() since it is required to give error message to end user.
             throw new UserStoreException(e.getMessage(), e);
